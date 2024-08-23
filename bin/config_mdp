@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: md.sh <mdp 파일 위치> -t <시간> -o <생성할 mdp 파일 이름>
+# Usage: config_mdp <Path of Template .mdp> -t <Time for MD> -o <Name for New .mdp>
 
 if [ "$#" -ne 5 ]; then
     echo "Usage: $0 <mdp 파일 위치> -t <시간> -o <생성할 mdp 파일 이름>"
