@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# 도움말 출력
+if [[ "$1" == "-h" ]]; then
+    echo "Usage: config_topol.sh [topology file]"
+    echo "Add itp location of your ligand into topology file"
+    exit 0
+fi
+
+# 입력 파일이 없는 경우 처리
+if [[ -z "$1" ]]; then
+    echo "Error: No input file provided."
+    echo "Usage: config_topol.sh [topology file]"
+    exit 1
+fi
+
+# 입력 파일
+file="$1"
+
+# ; Include forcefield parameters 위에 내용 추가
+sed -i '/; Include forcefield parameters/{n;:a;/^$/!{n;ba};s/^$/#include ".\/LIG.acpype\/LIG_GMX.itp"\n/}' "$file"
+
+# 파일의 마지막 줄에 'LIG     1' 추가
+echo -e "LIG     1" >> "$file"
+
+echo "파일 수정이 완료되었습니다."

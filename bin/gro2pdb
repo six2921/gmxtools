@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Usage 함수 정의
+usage() {
+    echo "Usage: $0 <input.gro>"
+    echo "Convert a .gro file to a .pdb file, then remove ATOM lines containing SOL, NA, or CL."
+    echo
+    echo "Arguments:"
+    echo "  <input.gro>  The input .gro file to be processed."
+    echo "  -h, --help   Show this help message and exit."
+    exit 1
+}
+
+# 인자 확인
+if [ $# -eq 0 ] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+    usage
+fi
+
+# 입력 파일 변수 설정
+input_gro="$1"
+
+# 파일이 .gro 확장자인지 확인
+if [[ "$input_gro" != *.gro ]]; then
+    echo "Error: The input file must have a .gro extension."
+    exit 1
+fi
+
+# 파일이 존재하는지 확인
+if [ ! -f "$input_gro" ]; then
+    echo "Error: File '$input_gro' not found."
+    exit 1
+fi
+
+# 파일명에서 확장자를 제거하여 출력 파일명 생성
+output_pdb="${input_gro%.gro}.pdb"
+
+# gmx editconf로 .gro 파일을 .pdb 파일로 변환
+gmx editconf -f "$input_gro" -o "$output_pdb"
+
+# .pdb 파일에서 ATOM으로 시작하고 SOL, NA, CL이 포함된 모든 행을 삭제
+awk '
+/^ATOM/ && ($0 ~ /SOL/ || $0 ~ /NA/ || $0 ~ /CL/) { next }  # SOL, NA, CL이 포함된 ATOM 줄은 건너뜀
+{ print }  # 나머지 줄은 그대로 출력
+' "$output_pdb" > tmp.pdb
+
+# 수정된 파일을 다시 덮어쓰기
+mv tmp.pdb "$output_pdb"
+
+echo "Conversion complete: '$output_pdb' created and cleaned."
+

@@ -1,0 +1,83 @@
+#!/home/siu/anaconda/bin/python
+
+import argparse
+import pandas as pd
+
+# .gro 파일을 테이블로 변환하는 함수
+def gro_to_dataframe(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    # 테이블 부분 추출 (첫 번째 두 줄과 마지막 줄 제외)
+    table_lines = lines[2:-1]
+    
+    # 각 라인의 정보를 나누어 DataFrame으로 변환
+    data = []
+    for line in table_lines:
+        residue_number = int(line[:5].strip())
+        residue_name = line[5:10].strip()
+        atom_name = line[10:15].strip()
+        atom_number = int(line[15:20].strip())
+        x = float(line[20:28].strip())
+        y = float(line[28:36].strip())
+        z = float(line[36:44].strip())
+        data.append([residue_number, residue_name, atom_name, atom_number, x, y, z])
+    
+    # DataFrame 생성
+    columns = ['residue_number', 'residue_name', 'atom_name', 'atom_number', 'x', 'y', 'z']
+    df = pd.DataFrame(data, columns=columns)
+    
+    return df
+
+# .gro 파일 형식에 맞게 테이블을 포맷팅하는 함수
+def format_gro_line(row):
+    return f"{int(row['residue_number']):>5}{row['residue_name']:<5}{row['atom_name']:>5}{int(row['atom_number']):>5}{row['x']:8.3f}{row['y']:8.3f}{row['z']:8.3f}\n"
+
+# 두 개의 DataFrame을 결합하고 .gro 파일로 저장하는 함수
+def process_files(protein_file, ligand_file, output_file):
+    # protein 파일을 DataFrame으로 변환
+    protein_df = gro_to_dataframe(protein_file)
+    
+    # ligand 파일을 DataFrame으로 변환
+    ligand_df = gro_to_dataframe(ligand_file)
+    
+    # ligand의 residue_number는 901로 변경, atom_number는 protein의 마지막 atom_number + 1부터 시작
+    ligand_df['residue_number'] = 901
+    ligand_df['atom_number'] = range(protein_df['atom_number'].iloc[-1] + 1, 
+                                     protein_df['atom_number'].iloc[-1] + len(ligand_df) + 1)
+    
+    # 두 개의 DataFrame 결합
+    combined_df = pd.concat([protein_df, ligand_df], ignore_index=True)
+    
+    # .gro 파일의 첫 두 줄 생성
+    row_count = len(combined_df)
+    gro_content = ["protein-ligand complex\n", f" {row_count}\n"]
+    
+    # 테이블의 각 행을 .gro 파일 형식으로 변환하여 추가
+    for _, row in combined_df.iterrows():
+        gro_content.append(format_gro_line(row))
+    
+    # .gro 파일로 저장
+    with open(output_file, 'w') as gro_file:
+        gro_file.writelines(gro_content)
+
+    print(f"Updated .gro file saved to: {output_file}")
+
+def main():
+    # argparse 설정
+    parser = argparse.ArgumentParser(
+        description="Combine two .gro files (protein and ligand) into a single .gro file, with atom numbers updated."
+    )
+    parser.add_argument("protein_gro", help="Path to the protein .gro file")
+    parser.add_argument("ligand_gro", help="Path to the ligand .gro file")
+    parser.add_argument("-o", "--output", default="protein_lig.gro", help="Output .gro file name (default: protein_lig.gro)")
+
+    # 인자 파싱
+    args = parser.parse_args()
+
+    # 파일 처리
+    process_files(args.protein_gro, args.ligand_gro, args.output)
+
+if __name__ == "__main__":
+    main()
+
