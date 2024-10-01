@@ -51,7 +51,7 @@ current_ns = the_time / 1000  # Convert from ps to ns
 percentage = (current_ns / total_ns) * 100
 
 print("")
-print(f"Traj (ns): {current_ns:>6.1f} / {total_ns:<6.1f}")
+print(f"Traj (ns): {current_ns:>6.1f} / {total_ns:<6.0f}")
 
 # Time Calculation
 last_mod_time = os.path.getmtime(log_file)  # Get last modification time of log file
