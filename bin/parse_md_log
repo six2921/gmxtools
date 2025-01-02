@@ -1,5 +1,3 @@
-#!/home/siu/anaconda/bin/python
-
 import os
 import argparse
 from datetime import datetime, timedelta
@@ -11,77 +9,84 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument("log_file", type=str, help="md.log (GROMACS)")
-
 args = parser.parse_args()
 log_file = args.log_file
 
-# 로그 파일에서 정보 추출 함수
+# Initialize variables
+dt = None
+nsteps = None
+started_time = None
+first_step = None
+first_time = None
+last_step = None
+last_time = None
+
+# Step 1: Read from the start to extract dt, nsteps, started_time, and first_step, first_time
 with open(log_file, 'r') as file:
     for line in file:
-        # Extract Path (formerly Working dir)
-        if "Working dir:" in line:
-            path = line.split("Working dir:")[1].strip()
-            path = path.split("/")[-1]
-        
-        # Extract dt value
+        # Extract dt and nsteps
         if line.strip().startswith("dt"):
             dt = float(line.split('=')[1].strip())
-
-        # Extract nsteps value
-        if line.strip().startswith("nsteps"):
+        elif line.strip().startswith("nsteps"):
             nsteps = int(line.split('=')[1].strip())
-
-        # Extract Started mdrun time and convert to Python datetime object
-        if line.strip().startswith("Started mdrun on"):
-            parts = line.split()
-            date_string = " ".join(parts[-5:])
+        
+        # Extract started_time
+        elif "Started mdrun on" in line:
+            date_string = " ".join(line.split()[-5:])
             started_time = datetime.strptime(date_string, "%a %b %d %H:%M:%S %Y")
-            
-        # Extract last step and time
-        if "Step" in line and "Time" in line:
-            # 다음 줄에 있는 step과 time 값 읽기
+        
+        # Extract first Step and Time
+        elif "Step" in line and "Time" in line:
             step_line = next(file).strip()
-            if step_line:
-                step, time_val = step_line.split()
-                the_step, the_time = int(step), float(time_val)
+            first_step, first_time = map(float, step_line.split())
+            break  # Stop reading after finding the first Step and Time
 
-# Calculate ns from dt & nsteps
-total_ns = (dt * nsteps) / 1000  # Convert from ps to ns
-current_ns = the_time / 1000  # Convert from ps to ns
-percentage = (current_ns / total_ns) * 100
+# Step 2: Read from the end to extract last_step and last_time
+with open(log_file, 'rb') as file:
+    file.seek(0, os.SEEK_END)
+    position = file.tell()
+    buffer = []
 
-print("")
-print(f"Traj (ns): {current_ns:>6.1f} / {total_ns:<6.0f}")
+    while position >= 0:
+        file.seek(position)
+        position -= 1
+        char = file.read(1)
 
-# Time Calculation
-last_mod_time = os.path.getmtime(log_file)  # Get last modification time of log file
-last_mod_time = datetime.fromtimestamp(last_mod_time)  # Convert to datetime
+        if char == b'\n':
+            line = b''.join(reversed(buffer)).decode('utf-8')
+            buffer = []
 
-# Estimate end time
-elapsed_time = last_mod_time - started_time  # Time elapsed since the simulation started
-estimated_total_time = elapsed_time / (percentage / 100)  # Total estimated time
-estimated_end_time = started_time + estimated_total_time  # Estimated end time
+            # Ensure the line contains only numbers to avoid headers
+            if line.strip() and line.split()[0].isdigit():
+                try:
+                    last_step, last_time = map(float, line.split())
+                    break
+                except ValueError:
+                    continue  # Ignore lines that do not parse correctly
+        else:
+            buffer.append(char)
 
-# 시간을 시간 단위로 변환
-elapsed_hours = elapsed_time.total_seconds() / 3600  # elapsed_time을 시간 단위로 변환
-estimated_total_hours = estimated_total_time.total_seconds() / 3600  # estimated_total_time을 시간 단위로 변환
+# Calculate the outputs only if all required values were found
+if dt is not None and nsteps is not None and started_time is not None and first_step is not None and first_time is not None:
+    # Calculate ns metrics
+    total_ns = (dt * nsteps) / 1000  # Total ns expected
+    current_ns = last_step * dt / 1000  # Corrected current ns calculation
 
-# Time 결과 출력
-print(f"Time (hr): {elapsed_hours:>6.1f} / {estimated_total_hours:<6.1f}")
-print(f"Prct  (%): {percentage:>6.1f} / 100")
+    # Daily ns calculation
+    elapsed_time_days = (datetime.now() - started_time).total_seconds() / 86400  # in days
+    daily_ns = current_ns / elapsed_time_days if elapsed_time_days > 0 else 0
 
-# Estimated end time formatted with minutes and weekday
-# started_time_formatted = started_time.strftime("%Y.%m.%d %H:%M %a")
-# estimated_end_time_formatted = estimated_end_time.strftime("%Y.%m.%d %H:%M %a")
+    # Estimate remaining time and end date based on current daily ns speed
+    remaining_ns = total_ns - current_ns
+    estimated_days_to_complete = remaining_ns / daily_ns if daily_ns > 0 else float('inf')
+    estimated_end_time = datetime.now() + timedelta(days=estimated_days_to_complete)
 
-# Estimated end time formatted with minutes and weekday
-started_time_formatted = started_time.strftime("%a %b %d %H:%M")
-estimated_end_time_formatted = estimated_end_time.strftime("%a %b %d %H:%M")
+    # Display the required information
+    print(f"  Started Time:", started_time.strftime("%Y/%m/%d %H:%M"))
+    print(f"Estimated Time:", estimated_end_time.strftime("%Y/%m/%d %H:%M"))
+    print(f"        ns/day: {daily_ns:.0f}")
+    print(f"         State: {current_ns:.0f}/{total_ns:.0f}") 
 
-
-# Estimated end time 출력
-print("-----------------------------")
-print(f"Initiated: {started_time_formatted:>18}")
-print(f"Terminate: {estimated_end_time_formatted:>18}")
-print("")
+else:
+    print("Error: Required data not found in the log file.")
 

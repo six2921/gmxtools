@@ -1,0 +1,55 @@
+import argparse
+import subprocess
+import time
+from datetime import datetime
+
+def get_file_modification_times(search_path, file_name):
+    # find command execution
+    command = f"find {search_path} -name '{file_name}' -exec stat -c '%Y %n' {{}} \\;"
+    result = subprocess.check_output(command, shell=True, text=True)
+    files = []
+    for line in result.strip().split('\n'):
+        if line.strip():
+            mod_time, file_path = line.split(' ', 1)
+            files.append((int(mod_time), file_path))
+    return files
+
+def calculate_time_difference(mod_time):
+    current_time = int(time.time())
+    diff = current_time - mod_time
+    
+    days = diff // 86400
+    hours = (diff % 86400) // 3600
+    minutes = (diff % 3600) // 60
+    
+    return days, hours, minutes
+
+def main():
+    # argparse for command-line argument handling
+    parser = argparse.ArgumentParser(description="Search for files and display how long ago they were modified, sorted by recent updates.")
+    parser.add_argument("path", help="The directory to search in (e.g., ./)", type=str)
+    parser.add_argument("name", help="The name of the file to search for (e.g., 'md.log')", type=str)
+    args = parser.parse_args()
+
+    # Search for files and sort them by modification time
+    try:
+        files = get_file_modification_times(args.path, args.name)
+        # Sort files by modification time in descending order
+        files.sort(key=lambda x: x[0], reverse=True)
+        
+        for mod_time, file_path in files:
+            days, hours, minutes = calculate_time_difference(mod_time)
+            
+            # Convert modification time to readable format
+            readable_time = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M')
+            
+            # Format the difference with leading zeros and abbreviated units
+            formatted_diff = f"{days:02d}d {hours:02d}h {minutes:02d}m ago"
+            
+            # Print formatted output
+            print(f"{readable_time}  |  {formatted_diff}  |  {file_path}")
+    except subprocess.CalledProcessError:
+        print("No files found or an error occurred during the search.")
+
+if __name__ == "__main__":
+    main()
