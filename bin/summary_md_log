@@ -81,11 +81,18 @@ if dt is not None and nsteps is not None and started_time is not None and first_
     estimated_days_to_complete = remaining_ns / daily_ns if daily_ns > 0 else float('inf')
     estimated_end_time = datetime.now() + timedelta(days=estimated_days_to_complete)
 
+    # Calculate the duration in days, hours, and minutes
+    estimated_duration_seconds = estimated_days_to_complete * 86400  # Convert days to seconds
+    duration_days = int(estimated_duration_seconds // 86400)
+    duration_hours = int((estimated_duration_seconds % 86400) // 3600)
+    duration_minutes = int((estimated_duration_seconds % 3600) // 60)
+
     # Display the required information
-    print(f"  Started Time:", started_time.strftime("%Y/%m/%d %H:%M"))
-    print(f"Estimated Time:", estimated_end_time.strftime("%Y/%m/%d %H:%M"))
-    print(f"        ns/day: {daily_ns:.0f}")
-    print(f"         State: {current_ns:.0f}/{total_ns:.0f}") 
+    print(f"{'Start:'.ljust(10)} {started_time.strftime('%m.%d %H:%M')}")
+    print(f"{'End:'.ljust(10)} {estimated_end_time.strftime('%m.%d %H:%M')}")
+    print(f"{'Duration:'.ljust(10)} {duration_days} days {duration_hours} hours {duration_minutes} minutes")
+    print(f"{'ns/day:'.ljust(10)} {daily_ns:.0f}")
+    print(f"{'Elapse:'.ljust(10)} {current_ns:.0f}/{total_ns:.0f}")
 
 else:
     print("Error: Required data not found in the log file.")

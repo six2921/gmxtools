@@ -9,15 +9,22 @@ args = parser.parse_args()
 # 입력 파일 경로 설정
 pdb_file = args.pdb_file
 
-# HETATM 잔기 목록 추출 함수 (체인 ID + 잔기 이름 + 잔기 번호로 유니크 ID 생성)
 def get_hetatm_residues(pdb_file):
     residues = {}
     with open(pdb_file, 'r') as file:
         for line in file:
+            # 무시할 줄 조건 추가
+            if line.startswith("TER") or line.startswith("CONECT") or line.startswith("END"):
+                continue
+            
+            # HETATM 처리
             if line.startswith("HETATM"):
+                if len(line) < 26:  # line[22:26]에 접근하기 위해 최소 길이 확인
+                    print(f"Skipping short line: {line.strip()}")
+                    continue
                 residue_name = line[17:20].strip()  # 잔기 이름
-                chain_id = line[21].strip()        # 체인 ID
-                residue_id = line[22:26].strip()  # 잔기 번호
+                chain_id = line[21].strip() if len(line) > 21 else ""  # 체인 ID
+                residue_id = line[22:26].strip() if len(line) > 26 else ""  # 잔기 번호
                 unique_id = f"{residue_name}{residue_id}_{chain_id}"  # 이름번호_체인ID
                 if unique_id not in residues:
                     residues[unique_id] = []
@@ -78,9 +85,12 @@ def interactive_residue_extraction(pdb_file, residues):
     split_file_name = pdb_file.replace(".pdb", "_split.pdb")
     with open(pdb_file, 'r') as file, open(split_file_name, 'w') as modified_file:
         for line in file:
+            if len(line) < 26:  # 최소 길이 확인
+                modified_file.write(line)
+                continue
             residue_name = line[17:20].strip()
-            chain_id = line[21].strip()
-            residue_id = line[22:26].strip()
+            chain_id = line[21].strip() if len(line) > 21 else ""
+            residue_id = line[22:26].strip() if len(line) > 26 else ""
             unique_id = f"{residue_name}{residue_id}_{chain_id}"
             if line.startswith("HETATM") and unique_id not in residues:
                 continue
@@ -90,4 +100,3 @@ def interactive_residue_extraction(pdb_file, residues):
 # 실행
 residues = get_hetatm_residues(pdb_file)
 interactive_residue_extraction(pdb_file, residues)
-
