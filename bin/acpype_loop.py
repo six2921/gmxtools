@@ -26,9 +26,15 @@ def main():
         epilog="Example usage: python acpype_loop.py file1.mol2 file2.pdb file3.mol"
     )
     parser.add_argument(
-        "files", nargs="+", help="List of files to process (e.g., file1.mol2 file2.pdb)."
+        "files", nargs="+", help="List of molecular files (e.g., .mol2, .pdb) to process using acpype."
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output to show acpype command execution details."
     )
     args = parser.parse_args()
+
+    if args.verbose:
+        print("Verbose mode enabled.")
 
     # 파일 처리
     process_files(args.files)
@@ -37,3 +43,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
